@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="LiveScore.css" />
+  </head>
+  <body>
+    <div class="ornithon-logo"></div>
+    <div class="denvik-logo"></div>
+
+    <div class="container">
+      <div class="row">
+        <div class="card-one">
+          <span class="live-data">Live Data</span><br />
+          <div class="card-one-data">
+            <div class="label-data">Line Number</div>
+            <div class="api-data1" id="value1"></div>
+          </div>
+          <br />
+          <div class="card-one-data">
+            <div class="label-data">Weight</div>
+            <div class="api-data2" id="value2"></div>
+          </div>
+          <video id="video" style="display: none"></video>
+          <canvas id="canvas" style="display: none"></canvas>
+        </div>
+        <div class="card-two">
+          <form class="form-card" id="myForm">
+            <input
+              type="text"
+              name="name"
+              id="name"
+              placeholder="Enter Name"
+            /><br />
+            <input
+              type="text"
+              name="number"
+              id="number"
+              placeholder="Enter Phone Number"
+            /><br />
+            <input
+              type="email"
+              name="email"
+              id="email"
+              placeholder="Enter Email"
+              required
+            /><br />
+            <button type="submit" class="btn-report">Send Report</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <script>
+      function updateValues() {
+        fetch("http://localhost:5000/data")
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("value1").textContent =
+              "LineNumber: " + data.value1;
+            document.getElementById("value2").textContent =
+              "Weight: " + data.value2 + "Kg";
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+
+      // Call the updateValues function initially and every 5 seconds
+      updateValues();
+      setInterval(updateValues, 5000);
+
+      let data = {};
+      document
+        .getElementById("myForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+          const formData = new FormData(myForm);
+          for (const [key, value] of formData.entries()) {
+            data[`${key}`] = value;
+          }
+          if (data.email) {
+            const video = document.getElementById("video");
+            const canvas = document.getElementById("canvas");
+            const context = canvas.getContext("2d");
+            navigator.mediaDevices
+              .getUserMedia({ video: true })
+              .then((stream) => {
+                console.log("navigator", stream);
+                video.srcObject = stream;
+                video.play();
+
+                video.onloadedmetadata = () => {
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  context.drawImage(
+                    video,
+                    0,
+                    0,
+                    video.videoWidth,
+                    video.videoHeight
+                  );
+
+                  const imageData = canvas.toDataURL("image/png");
+
+                  fetch("http://localhost:5000/com/email", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ ...data, imageData }),
+                  })
+                    .then((response) => {
+                      if (response.status === 200) {
+                        alert("Email sent successfully.");
+                      } else {
+                        alert("Failed to send email. Please check mail-id.");
+                      }
+                    })
+                    .catch((error) => {
+                      console.error("Error:", error);
+                      alert("Failed to send email. Please try again.");
+                    });
+
+                  stream.getTracks().forEach((track) => track.stop());
+                };
+              })
+              .catch((error) => {
+                console.error("Error accessing the webcam:", error);
+                alert("Failed to access the webcam. Please try again.");
+              });
+          } else {
+            alert("Please enter an email address.");
+          }
+          console.log(data);
+        });
+    </script>
+  </body>
+</html>
